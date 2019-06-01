@@ -1,37 +1,60 @@
-## Welcome to GitHub Pages
+#### 方华宾
+- 130-5231-6968 | tahitianfang@gmail.com 
+- 求职意向:后端开发工程师 | 博客：xxxx
 
-You can use the [editor on GitHub](https://github.com/tahitian/tahitian.github.io/edit/master/index.md) to maintain and preview the content for your website in Markdown files.
+#### 个人简介
 
-Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
+一年 Python 后端开发经验，熟悉 Tornado 开发框架，理解其基于协程的异步原理。掌握数据库基础原理，对MySQL数据库的索引和锁机制有深入了解。具有良好的学习能力和团队沟通能力，工作期间拿过最佳进步奖。
 
-### Markdown
+#### 教育经历
+**（根据你的情况，我建议把教育经历提前。奖学金/高绩点的话可以补充进去）**
 
-Markdown is a lightweight and easy-to-use syntax for styling your writing. It includes conventions for
+- 同济大学 2013年9月 - 2017年6月
+- 外国哲学 硕士 人文学院 
+- 东南大学 2009年9月 - 2013年6月
+- 软件工程 本科 软件学院
 
-```markdown
-Syntax highlighted code block
 
-# Header 1
-## Header 2
-### Header 3
+#### 技能列表:
+**（想想有没有需要补充的）**
 
-- Bulleted
-- List
+- 后端:Tornado
+- 数据库:MySQL 
+- 网络协议:TCP/IP、HTTP
+- 工具:RabbitMQ、Git 
+- 外语:英语六级，能流畅阅读英文文档
+     
+#### 工作经历
 
-1. Numbered
-2. List
+##### 允谦信息科技有限公司 
+- 2018年3月 - 2018年12月 | Python 开发工程师 | 上海
+- 与产品经理保持沟通，对系统后端模块进行升级，维护并根据需求添加新功能。
+- 调整系统的模块划分，高效重构并降低模块之间的耦合，使项目方便横向扩展。
+- 负责公司技术文档的编写以及维护，与团队共同定期分享以及互相学习。
 
-**Bold** and _Italic_ and `Code` text
+##### 数凹文化传媒有限公司 
+- 2017年7月 - 2017年12月 | 软件开发工程师 | 上海
+- 前期负责编写测试用例，生成测试报告，跟踪bug的解决情况。
+- 中后期担任项目管理以及前端开发工程师，负责制定项目开发计划、编写系统2.0版本的需求文档，负责各个部门的工作任务分配以及工作细化划分，保证项目按时上线，工作期间获得过最佳进步奖。
+   
+#### 项目经历
 
-[Link](url) and ![Image](src)
-```
+##### ATI系统
+- 2018年3月 - 2018年12月 | Python 开发工程师 | 上海
 
-For more details see [GitHub Flavored Markdown](https://guides.github.com/features/mastering-markdown/).
+ATI系统为特定广告主提供广告自动投放业务，使用 **Tornado** 作为开发框架，**MySQL** 作为数据存储、**RabbitMQ** 作为消息中间件，并部署在阿里云。
 
-### Jekyll Themes
+- 经过独立研究，选择 **L2TP** 连接取代原来的PPTP连接，使用 **Docker** 用来实现路由隔离，两者配合解决了在单台客户端和同一台拨号服务器之间不能同时建立多个拨号连接的问题。
+- 使用 **RabbitMQ** 与阿里云实现统计服务器的动态增删，短信告警，地域定向投放等功能。并通过添加批量获取任务的API，优化 **30%** 服务器的性能。
+- 通过修改PPTP账号管理服务器的账号管理方式，使得服务器能够同时支持多家供应商的账号，并且实现服务端和客户端之间的 解耦，使得对客户端的增删无需依赖于服务端的配置，方便客户端的横向扩展。
 
-Your Pages site will use the layout and styles from the Jekyll theme you have selected in your [repository settings](https://github.com/tahitian/tahitian.github.io/settings). The name of this theme is saved in the Jekyll `_config.yml` configuration file.
 
-### Support or Contact
+##### AdClick系统
+- 2017年7月 - 2017年12月 | 软件开发工程师 | 上海
 
-Having trouble with Pages? Check out our [documentation](https://help.github.com/categories/github-pages-basics/) or [contact support](https://github.com/contact) and we’ll help you sort it out.
+AdClick系统是一个DSP系统，为广告主提供投放平台。前端使用Vue框架，**MySQL** 作为数据存储、**RabbitMQ** 作为消息中间件并部署在阿里云之上。使用 **Selenium、Mocha** 测试框架用作自动化测试。
+
+- 前期作为测试工程师为AdClick系统Web端、移动端应用设计数千个测试用例，保证版本的健康迭代。使用 **Selenium** 和 **Mocha** 编写自动化测试脚本，保证核心API和关键前端功能的正确性。工作中多次发现系统设计上的漏洞，并促进系统设计的改善。
+- 后期基于 **Vue** 框架开发前端页面，完成消息模块和部分财务模块的功能。并参考Facebook的广告系统，编写系统2.0版本的需求文档。
+- 兼任项目管理的工作，包括制定开发计划、分配任务、跟踪完成情况、定期汇报项目进展等。
+
