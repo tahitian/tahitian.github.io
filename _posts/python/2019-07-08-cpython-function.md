@@ -9,11 +9,11 @@ Python中的一切都是对象，编译得到的结果也是对象，即PyCodeOb
 PyCodeObject除了包含字节码之外，还包含几个和函数调用相关的重要的成员：
 
 * int co_nlocals：参数+局部变量的个数之和
-* int co_stacksize：运行时栈大小
-* PyObject *co_cellvars：cell变量名组成的PyTupleObject，cell变量即外部函数中被嵌套函数引用的局部变量
-* PyObject *co_freevars：free变量名组成的PyTupleObject，free变量即嵌套函数中引用的外部函数的局部变量
+* int co_stacksize：运行时栈的大小
+* PyObject *co_cellvars：cell变量名组成的PyTupleObject，存储的是PyStringObjet，cell变量即外部函数中被嵌套函数引用的局部变量
+* PyObject *co_freevars：free变量名组成的PyTupleObject，存储的是PyStringObjet，free变量即嵌套函数中引用的外部函数的局部变量
 
-一个命名空间对应一个PyCodeObject，模块、类、函数都是独立的命名空间。因此一个源文件编译之后可能得到多个PyCodeObject，命名空间之间相互嵌套，PyCodeObject之间也是相互嵌套。内部PyCodeObject被嵌套在外部PyCodeObject的co_consts中，co_consts是PyCodeObject中的一个PyListObject成员，包含编译过程中得到的常量。
+一个命名空间对应一个PyCodeObject，模块、类、函数都是独立的命名空间。因此一个源文件编译之后可能得到多个PyCodeObject，命名空间之间相互嵌套，PyCodeObject之间也是相互嵌套的。内部PyCodeObject被嵌套在外部PyCodeObject的co_consts中，co_consts是PyCodeObject中的一个PyListObject成员，存储编译过程中得到的常量。
 
 经过编译之后，得到一个和函数唯一对应的PyCodeObject。
 
@@ -24,7 +24,7 @@ PyCodeObject除了包含字节码之外，还包含几个和函数调用相关�
 函数对象在C中对应的实现是PyFunctionObject结构体，除了包含对应的PyCodeObject之外，还包含如下几个和函数上下文环境相关的成员：
 
 * PyObject *func_globals：函数的全局命名空间，PyDictObject对象
-* PyObject *func_defaults：函数的参数的默认值，PyTupleObject对象
+* PyObject *func_defaults：函数的参数默认值，PyTupleObject对象
 * PyObject *func_closure：闭包引用的自由变量，PyTupleObject对象，存储的是PyCellObject对象
 
 在介绍创建函数对象的具体过程之前，有必要再介绍一下栈帧对象：
@@ -72,7 +72,7 @@ f_code指向对应的PyFunctionObject的func_code，f_globals指向对应的PyFu
 
 和闭包相关的元素包括PyCodeObject中的co_vellvars、co_freevars，PyFunctionObject中的func_closure，PyFrameObject中的f_localsplus中的cell区间和free区间，下面介绍如何利用这些元素实现闭包。
 
-当执行外部函数的时候，初始化PyFrameObject的过程中，会去查看对应的PyCodeObject的co_cellvars，如果非空，表示其中的某些局部变量被嵌套函数所引用，需要填充当前PyFrameObject的cell区间。首先遍历co_cellvars，依次取出cell变量名，新建一个PyCellObject（PyCellObject中不保存变量名，只是对于ob_ref指针的封装，ob_ref指向实际的cell变量），根据变量名判断该cell变量是否是一个使用了默认值的参数，以此决定是否需要给新cell对象的ob_ref初始化，然后将cell对象的指针依次放到f_localsplus的cell区间中。
+当执行外部函数的时候，初始化PyFrameObject的过程中，会去查看对应的PyCodeObject的co_cellvars，如果非空，表示其中的某些局部变量被嵌套函数所引用，需要填充当前PyFrameObject的cell区间。首先遍历co_cellvars，依次取出cell变量名，每取出一个cell变量名新建一个PyCellObject（PyCellObject中不保存变量名，只是对于ob_ref指针的封装，ob_ref指向实际的cell变量），根据变量名判断该cell变量是否是外部函数中一个使用了默认值的参数，以此决定是否需要给新cell对象的ob_ref初始化，然后将cell对象的指针依次放到f_localsplus的cell区间中。
 
 在函数执行过程中，和局部变量一样，cell对象也是通过索引访问的，并且在执行的过程中动态地修改其中的ob_ref。
 
@@ -82,12 +82,12 @@ f_code指向对应的PyFunctionObject的func_code，f_globals指向对应的PyFu
 
 ### 闭包中的自由变量的迟绑定
 
-自由变量存储在PyFunctionObject的func_closure中，而func_closure是从外部函数的PyFrameObject的f_localsplus的cell区间中拷贝过来的。cell区间中的PyCellObject个数等于PyCodeObject中的co_cellvars的个数，也就是说一个变量名只对应一个cell对象。也就是说对同一个自由变量做多次赋值，并不会生成多个cell对象，而是修改cell对象中的ob_ref值。
+自由变量存储在PyFunctionObject的func_closure中，而func_closure是从外部函数的PyFrameObject的f_localsplus的cell区间中拷贝过来的。cell区间中的PyCellObject个数等于PyCodeObject中的co_cellvars的个数，也就是说一个变量名只对应一个cell对象。也就是说**对同一个自由变量做多次赋值，并不会生成多个cell对象，而是修改cell对象中的ob_ref指针**。
 
 闭包直接引用的是cell对象，然后通过cell对象的ob_ref指针引用实际的变量。而在外部函数的执行的过程中，cell对象的ob_ref指针会被动态的修改，当闭包最终被返回时，此时的func_closure中的cell对象的ob_ref指向的是最终的赋值对象。
 
-也就是说，闭包中访问到的自由变量是在外部函数中最终的值，这就是闭包中的自由变量的延迟绑定的现象。
+也就是说，闭包中访问到的自由变量是在外部函数中最终的赋值，这就是闭包中的自由变量的延迟绑定的现象。
 
 ### 闭包中的自由变量不是深拷贝
 
-由上面的说明可知，闭包中是通过cell对象的ob_ref指针引用自由变量的，也就是说，传递到闭包中的只是自由变量的指针，而不是自由变量的深拷贝。
+由上面的分析可知，闭包是通过cell对象的ob_ref指针引用自由变量的，也就是说，传递到闭包中的只是自由变量的指针，而不是自由变量的深拷贝。
