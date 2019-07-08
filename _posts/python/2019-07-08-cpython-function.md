@@ -1,0 +1,93 @@
+# 简述CPython中的函数机制
+
+## 编译
+
+Python虚拟机执行的是字节码，编译就是将源代码转换成字节码的过程。
+
+Python中的一切都是对象，编译得到的结果也是对象，即PyCodeObject。PyCodeObject是用C语言定义的结构体，是代码对象在C中的具体实现。
+
+PyCodeObject除了包含字节码之外，还包含几个和函数调用相关的重要的成员：
+
+* int co_nlocals：参数+局部变量的个数之和
+* int co_stacksize：运行时栈大小
+* PyObject *co_cellvars：cell变量名组成的PyTupleObject，cell变量即外部函数中被嵌套函数引用的局部变量
+* PyObject *co_freevars：free变量名组成的PyTupleObject，free变量即嵌套函数中引用的外部函数的局部变量
+
+一个命名空间对应一个PyCodeObject，模块、类、函数都是独立的命名空间。因此一个源文件编译之后可能得到多个PyCodeObject，命名空间之间相互嵌套，PyCodeObject之间也是相互嵌套。内部PyCodeObject被嵌套在外部PyCodeObject的co_consts中，co_consts是PyCodeObject中的一个PyListObject成员，包含编译过程中得到的常量。
+
+经过编译之后，得到一个和函数唯一对应的PyCodeObject。
+
+## 创建函数对象
+
+### PyFunctionObject
+
+函数对象在C中对应的实现是PyFunctionObject结构体，除了包含对应的PyCodeObject之外，还包含如下几个和函数上下文环境相关的成员：
+
+* PyObject *func_globals：函数的全局命名空间，PyDictObject对象
+* PyObject *func_defaults：函数的参数的默认值，PyTupleObject对象
+* PyObject *func_closure：闭包引用的自由变量，PyTupleObject对象，存储的是PyCellObject对象
+
+在介绍创建函数对象的具体过程之前，有必要再介绍一下栈帧对象：
+
+### PyFrameObject
+
+PyFrameObject即栈帧对象，是对虚拟机执行过程中的执行环境的抽象，主要包括运行时栈和命名空间：
+
+* PyCodeObject *f_code：对应的PyCodeObject，类似的，一个命名空间对应一个栈帧对象
+* PyObject *f_builtins：内建命名空间，PyDictObject对象
+* PyObject *f_globals：全局命名空间，PyDictObject对象
+* PyObject *f_locals：局部命名空间，PyDictObject对象
+* PyObject *f_localsplus[]：一个指针数组，数组的区间依次被划分为参数、局部变量、cell变量、free变量、运行时栈几个部分
+
+### 创建PyFunctionObject
+
+执行def语句即是创建函数对象的过程。
+
+在def所在的命名空间对应的PyFrameObject中，首先以函数对应的PyCodeObject和当前PyFrameObject的f_globals为参数，新建一个PyFunctionObject对象。
+
+PyCodeObject被赋值给func_code，f_globals被赋值给func_globals。函数如果有默认参数值，将默认参数值对象的指针打包成一个PyTupleObject，赋值给func_defaults。
+
+## 函数调用
+
+调用函数时，因为进入了一个新的命名空间，所以需要新建一个PyFrameObject。
+
+f_code指向对应的PyFunctionObject的func_code，f_globals指向对应的PyFunctionObject的func_globals。
+
+这里需要注意的是f_locals=NULL。在栈帧对象中，一共有两个成员和局部变量相关，一个是f_locals，一个是f_localsplus，前者是PyDictObject，后者是数组。对于函数调用来说，只会使用后者，因为函数中使用的局部变量在编译时就可以确定个数，只需要存储在数组中，根据索引去访问即可。
+
+接下来需要初始化f_localsplus，f_localsplus的大小等于co_nlocals + ncells + nfrees + co_stacksize，其中的区间依次被划分给参数、局部变量、cell变量、free变量、运行时栈。
+
+* 参数值：根据传入的实参的个数，计算需要使用到的默认参数值的个数，然后将实参指针和实际使用到的默认参数值指针依次填入参数区间
+* 局部变量：在执行过程中动态填入
+* cell变量区间和free变量区间的填充在后面的闭包部分再介绍
+* 运行时栈：初始化f_valuestack、f_stacktop，分别指向栈底和栈顶
+
+到此为止为函数调用创建的PyFrameObject的初始化完成，接下来只需要从f_code指向的PyCodeObject中取出字节码逐条执行，并且根据需要动态访问、填充、修改命名空间和f_localsplus即可。
+
+当函数返回时，返回值被传到上一层的PyFrameObject，被压到该栈帧对象的运行时栈的栈顶。
+
+## 闭包
+
+闭包是一个绑定了自由变量的嵌套函数。
+
+和闭包相关的元素包括PyCodeObject中的co_vellvars、co_freevars，PyFunctionObject中的func_closure，PyFrameObject中的f_localsplus中的cell区间和free区间，下面介绍如何利用这些元素实现闭包。
+
+当执行外部函数的时候，初始化PyFrameObject的过程中，会去查看对应的PyCodeObject的co_cellvars，如果非空，表示其中的某些局部变量被嵌套函数所引用，需要填充当前PyFrameObject的cell区间。首先遍历co_cellvars，依次取出cell变量名，新建一个PyCellObject（PyCellObject中不保存变量名，只是对于ob_ref指针的封装，ob_ref指向实际的cell变量），根据变量名判断该cell变量是否是一个使用了默认值的参数，以此决定是否需要给新cell对象的ob_ref初始化，然后将cell对象的指针依次放到f_localsplus的cell区间中。
+
+在函数执行过程中，和局部变量一样，cell对象也是通过索引访问的，并且在执行的过程中动态地修改其中的ob_ref。
+
+当执行到嵌套函数的def语句的时候，创建一个PyFunctionObject对象，在初始化的过程中将cell区间中的PyCellObject对象指针打包成一个tuple，赋值给func_closure。
+
+调用嵌套函数的时候，在初始化PyFrameObject的过程中，依次将func_closure中的PyCellObject对象指针拷贝到f_localsplus的free区间中。接下来在嵌套函数执行的过程中，就可以通过free区间中的PyCellObject对象指针访问到外部函数中创建的自由变量了。
+
+### 闭包中的自由变量的迟绑定
+
+自由变量存储在PyFunctionObject的func_closure中，而func_closure是从外部函数的PyFrameObject的f_localsplus的cell区间中拷贝过来的。cell区间中的PyCellObject个数等于PyCodeObject中的co_cellvars的个数，也就是说一个变量名只对应一个cell对象。也就是说对同一个自由变量做多次赋值，并不会生成多个cell对象，而是修改cell对象中的ob_ref值。
+
+闭包直接引用的是cell对象，然后通过cell对象的ob_ref指针引用实际的变量。而在外部函数的执行的过程中，cell对象的ob_ref指针会被动态的修改，当闭包最终被返回时，此时的func_closure中的cell对象的ob_ref指向的是最终的赋值对象。
+
+也就是说，闭包中访问到的自由变量是在外部函数中最终的值，这就是闭包中的自由变量的延迟绑定的现象。
+
+### 闭包中的自由变量不是深拷贝
+
+由上面的说明可知，闭包中是通过cell对象的ob_ref指针引用自由变量的，也就是说，传递到闭包中的只是自由变量的指针，而不是自由变量的深拷贝。
